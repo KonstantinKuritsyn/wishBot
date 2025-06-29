@@ -228,7 +228,7 @@ flowers = [
     "💫"   # Звезда
 ]
 
-time_to_send = datetime.time(hour=22, minute=55, tzinfo=moscow_tz)
+time_to_send = datetime.time(hour=20, minute=39, tzinfo=moscow_tz)
 
 
 async def send_daily_color(context: ContextTypes.DEFAULT_TYPE):
@@ -248,17 +248,6 @@ async def start(update, context):
     # Запускаем новую ежедневную задачу
     context.job_queue.run_daily(send_daily_color, time=time_to_send, chat_id=chat_id, name=str(chat_id))
     await update.message.reply_text("Начинаю отправлять пожелания")
-
-
-async def restore_jobs(app):
-    for chat_id, data in app.chat_data.items():
-        if data.get('subscribed'):
-            app.job_queue.run_daily(
-                send_daily_color,
-                time=time_to_send,
-                chat_id=chat_id,
-                name=str(chat_id)
-            )
 
 
 def remove_job_if_exists(name: str, context):
@@ -281,13 +270,9 @@ async def stop(update, context):
 
 
 if __name__ == '__main__':
-    persistence = PicklePersistence(filepath='bot_data')
-    app = ApplicationBuilder().token(os.environ.get('TELEGRAM_TOKEN_WISH_BOT')).persistence(persistence).build()
+    app = ApplicationBuilder().token(os.environ.get('TELEGRAM_TOKEN_WISH_BOT')).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stop", stop))
     print("Бот запущен...")
-
-    # Восстановление задач
-    app.post_init = restore_jobs
 
     app.run_polling()
