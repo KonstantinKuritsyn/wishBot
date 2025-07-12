@@ -1,4 +1,5 @@
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, PicklePersistence
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.error import TelegramError
 import random
 import datetime
 import pytz
@@ -212,6 +213,7 @@ wishes = [
 flowers = [
     "🌸",  # Цветок сакуры
     "🌷",  # Тюльпан
+    "🍂",  # Осенний лист
     "🌹",  # Роза
     "🌺",  # Гибискус
     "🌻",  # Подсолнух
@@ -219,7 +221,6 @@ flowers = [
     "🌿",  # Ветка
     "🍀",  # Клевер
     "🍁",  # Кленовый лист
-    "🍂",  # Осенний лист
     "🍃",  # Лист
     "🍄",  # Гриб
     "💐",  # Букет
@@ -228,27 +229,35 @@ flowers = [
     "💫"   # Звезда
 ]
 
-time_to_send = datetime.time(hour=20, minute=39, tzinfo=moscow_tz)
+time_to_send = datetime.time(hour=9, minute=0, tzinfo=moscow_tz)
 
 
-async def send_daily_color(context: ContextTypes.DEFAULT_TYPE):
+async def send_wish(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
     wish = random.choice(wishes)
     flower = random.choice(flowers)
-    await context.bot.send_message(chat_id=chat_id, text=f"{wish} {flower}")
-
+    try:
+        await context.bot.send_message(chat_id=chat_id, text=f"{wish} {flower}")
+    except TelegramError as e:
+        print(f"Ошибка отправки сообщения: {e}")
 
 async def start(update, context):
     chat_id = update.effective_chat.id
     await update.message.reply_text("Привет! Я буду каждый день писать тебе приятные пожелания")
-    # Сохраняем chat_id в chat_data
+    # Корректно инициализируем chat_data для chat_id
+    if chat_id not in context.application.chat_data:
+        context.application.chat_data[chat_id] = {}
     context.application.chat_data[chat_id]['subscribed'] = True
     # Удаляем старую задачу, если есть
     remove_job_if_exists(str(chat_id), context)
     # Запускаем новую ежедневную задачу
-    context.job_queue.run_daily(send_daily_color, time=time_to_send, chat_id=chat_id, name=str(chat_id))
+    context.job_queue.run_daily(
+        send_wish,
+        time=time_to_send,
+        chat_id=chat_id,
+        name=str(chat_id)
+    )
     await update.message.reply_text("Начинаю отправлять пожелания")
-
 
 def remove_job_if_exists(name: str, context):
     current_jobs = context.job_queue.get_jobs_by_name(name)
@@ -258,21 +267,21 @@ def remove_job_if_exists(name: str, context):
         job.schedule_removal()
     return True
 
-
 async def stop(update, context):
     chat_id = update.effective_chat.id
     removed = remove_job_if_exists(str(chat_id), context)
-    context.chat_data['subscribed'] = False
+    # Корректно инициализируем chat_data для chat_id
+    if chat_id not in context.application.chat_data:
+        context.application.chat_data[chat_id] = {}
+    context.application.chat_data[chat_id]['subscribed'] = False
     if removed:
         await update.message.reply_text("Автоматическая отправка остановлена.")
     else:
         await update.message.reply_text("У вас не было активных задач.")
-
 
 if __name__ == '__main__':
     app = ApplicationBuilder().token(os.environ.get('TELEGRAM_TOKEN_WISH_BOT')).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stop", stop))
     print("Бот запущен...")
-
     app.run_polling()
