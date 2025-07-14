@@ -244,10 +244,7 @@ async def send_wish(context: ContextTypes.DEFAULT_TYPE):
 async def start(update, context):
     chat_id = update.effective_chat.id
     await update.message.reply_text("Привет! Я буду каждый день писать тебе приятные пожелания")
-    # Корректно инициализируем chat_data для chat_id
-    if chat_id not in context.application.chat_data:
-        context.application.chat_data[chat_id] = {}
-    context.application.chat_data[chat_id]['subscribed'] = True
+    context.chat_data['subscribed'] = True
     # Удаляем старую задачу, если есть
     remove_job_if_exists(str(chat_id), context)
     # Запускаем новую ежедневную задачу
@@ -270,10 +267,7 @@ def remove_job_if_exists(name: str, context):
 async def stop(update, context):
     chat_id = update.effective_chat.id
     removed = remove_job_if_exists(str(chat_id), context)
-    # Корректно инициализируем chat_data для chat_id
-    if chat_id not in context.application.chat_data:
-        context.application.chat_data[chat_id] = {}
-    context.application.chat_data[chat_id]['subscribed'] = False
+    context.chat_data['subscribed'] = False
     if removed:
         await update.message.reply_text("Автоматическая отправка остановлена.")
     else:
